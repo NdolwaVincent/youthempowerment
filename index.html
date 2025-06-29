@@ -3,23 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Youth Empowerment Registration</title>
+  <title>Youth Empowerment Admin Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      set,
-      get,
-      child
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
-    import {
-      getStorage,
-      ref as sRef,
-      uploadBytes,
-      getDownloadURL
-    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-storage.js";
+    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBtB199eH6fONCftI_B6IDP80_0Tv2dFN8",
@@ -33,105 +21,115 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const storage = getStorage(app);
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const form = document.getElementById("registerForm");
-      const roleSelect = document.getElementById("role");
-      const seatDiv = document.getElementById("seatDiv");
-      const seatSelect = document.getElementById("seat");
+    const maskID = (id) => {
+      if (!id || id.length < 8) return id;
+      return id.slice(0, 4) + "****" + id.slice(-3);
+    };
 
-      // Hide or show seat based on role
-      roleSelect.addEventListener("change", () => {
-        if (roleSelect.value === "aspirant") {
-          seatDiv.classList.remove("hidden");
-          seatSelect.required = true;
-        } else {
-          seatDiv.classList.add("hidden");
-          seatSelect.required = false;
-          seatSelect.value = ""; // clear seat value if not needed
-        }
-      });
+    const loadData = async () => {
+      const dbRef = ref(db);
+      const voterTable = document.getElementById("voterBody");
+      const aspirantTable = document.getElementById("aspirantBody");
+      const voterCount = document.getElementById("voterCount");
+      const aspirantCount = document.getElementById("aspirantCount");
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
+      const voterSnap = await get(child(dbRef, "Youth/Chama/Voting/voters"));
+      const aspirantSnap = await get(child(dbRef, "Youth/Chama/Voting/aspirants"));
 
-        const name = document.getElementById("name").value.trim();
-        const id = document.getElementById("id").value.trim();
-        const phone = document.getElementById("phone").value.trim();
-        const role = roleSelect.value;
-        const seat = seatSelect.value;
-        const image = document.getElementById("image").files[0];
+      voterTable.innerHTML = "";
+      aspirantTable.innerHTML = "";
 
-        if (!name || !id || !phone || !image || !role) {
-          alert("Please fill in all required fields.");
-          return;
-        }
+      let voters = [];
+      let aspirants = [];
 
-        try {
-          const dbRef = ref(db);
-          const checkPath = `Youth/Chama/Voting/${role === 'voter' ? 'voters' : 'aspirants'}/${phone}`;
-          const existing = await get(child(dbRef, checkPath));
+      if (voterSnap.exists()) {
+        voters = Object.values(voterSnap.val());
+        voters.forEach((v, i) => {
+          voterTable.innerHTML += `
+            <tr class="border-b">
+              <td class="p-2">${i + 1}</td>
+              <td class="p-2">${v.name}</td>
+              <td class="p-2">${v.phone}</td>
+              <td class="p-2">${maskID(v.id)}</td>
+              <td class="p-2"><img src="${v.imageUrl}" class="w-12 h-12 rounded-full object-cover" /></td>
+            </tr>`;
+        });
+      }
 
-          if (existing.exists()) {
-            alert("This phone number has already been used for registration.");
-            return;
-          }
+      if (aspirantSnap.exists()) {
+        aspirants = Object.values(aspirantSnap.val());
+        aspirants.forEach((a, i) => {
+          aspirantTable.innerHTML += `
+            <tr class="border-b">
+              <td class="p-2">${i + 1}</td>
+              <td class="p-2">${a.name}</td>
+              <td class="p-2">${a.phone}</td>
+              <td class="p-2">${maskID(a.id)}</td>
+              <td class="p-2">${a.seat}</td>
+              <td class="p-2"><img src="${a.imageUrl}" class="w-12 h-12 rounded-full object-cover" /></td>
+            </tr>`;
+        });
+      }
 
-          const imageRef = sRef(storage, `Youth/Chama/Voting/images/${phone}.jpg`);
-          await uploadBytes(imageRef, image);
-          const imageUrl = await getDownloadURL(imageRef);
+      // Update counts
+      voterCount.textContent = voters.length;
+      aspirantCount.textContent = aspirants.length;
+    };
 
-          const data = { name, id, phone, imageUrl };
-          if (role === "aspirant") data.seat = seat;
-
-          await set(ref(db, checkPath), data);
-
-          alert("Registration successful.");
-          form.reset();
-          seatDiv.classList.add("hidden"); // Hide seat again
-        } catch (err) {
-          console.error("Registration error:", err);
-          alert("An error occurred during registration.");
-        }
-      });
-    });
+    document.addEventListener("DOMContentLoaded", loadData);
   </script>
 </head>
-<body class="bg-gradient-to-r from-indigo-200 via-blue-100 to-purple-100 min-h-screen p-4 flex items-center justify-center">
-  <div class="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 sm:p-10">
-    <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-blue-700">Youth Empowerment voting Registration</h1>
-    <h3 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-blue-700">Register as Aspirant or Voters for tommorrows votiing practices</h3>
-    <form id="registerForm" class="space-y-4">
-      <input class="w-full p-3 border border-gray-300 rounded" type="text" id="name" placeholder="Full Name" required />
-      <input class="w-full p-3 border border-gray-300 rounded" type="text" id="id" placeholder="National ID" required />
-      <input class="w-full p-3 border border-gray-300 rounded" type="tel" id="phone" placeholder="Phone Number" required />
+<body class="bg-gray-100 p-4 min-h-screen">
+  <div class="max-w-6xl mx-auto">
+    <h1 class="text-3xl font-bold text-center mb-6 text-blue-700">Youth Empowerment Admin Dashboard</h1>
 
-      <select id="role" class="w-full p-3 border border-gray-300 rounded" required>
-        <option value="">Select Role</option>
-        <option value="voter">Voter</option>
-        <option value="aspirant">Aspirant</option>
-      </select>
-
-      <!-- Seat selector, hidden by default -->
-      <div id="seatDiv" class="hidden">
-        <select id="seat" class="w-full p-3 border border-gray-300 rounded">
-          <option value="">Select Seat</option>
-          <option value="Chairperson">Chairperson</option>
-          <option value="Assistant Chair">Assistant Chair</option>
-          <option value="Treasurer">Treasurer</option>
-          <option value="Assistant Treasurer">Assistant Treasurer</option>
-          <option value="Secretary">Secretary</option>
-          <option value="Assistant Secretary">Assistant Secretary</option>
-        </select>
+    <!-- Stats -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div class="bg-white shadow rounded-lg p-6 text-center">
+        <h2 class="text-lg font-semibold text-gray-700">Total Voters</h2>
+        <p id="voterCount" class="text-3xl font-bold text-green-600 mt-2">0</p>
       </div>
+      <div class="bg-white shadow rounded-lg p-6 text-center">
+        <h2 class="text-lg font-semibold text-gray-700">Total Aspirants</h2>
+        <p id="aspirantCount" class="text-3xl font-bold text-purple-600 mt-2">0</p>
+      </div>
+    </div>
 
-      <input type="file" id="image" accept="image/*" class="w-full p-2 border rounded bg-white" required />
+    <!-- Voters Table -->
+    <div class="bg-white shadow rounded-lg p-6 mb-10 overflow-x-auto">
+      <h2 class="text-xl font-semibold mb-4 text-green-700">Voter Registrations</h2>
+      <table class="min-w-full text-left text-sm">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2">#</th>
+            <th class="p-2">Name</th>
+            <th class="p-2">Phone</th>
+            <th class="p-2">National ID</th>
+            <th class="p-2">Photo</th>
+          </tr>
+        </thead>
+        <tbody id="voterBody" class="bg-white"></tbody>
+      </table>
+    </div>
 
-      <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded">
-        Register
-      </button>
-    </form>
+    <!-- Aspirants Table -->
+    <div class="bg-white shadow rounded-lg p-6 overflow-x-auto">
+      <h2 class="text-xl font-semibold mb-4 text-purple-700">Aspirant Registrations</h2>
+      <table class="min-w-full text-left text-sm">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2">#</th>
+            <th class="p-2">Name</th>
+            <th class="p-2">Phone</th>
+            <th class="p-2">National ID</th>
+            <th class="p-2">Seat</th>
+            <th class="p-2">Photo</th>
+          </tr>
+        </thead>
+        <tbody id="aspirantBody" class="bg-white"></tbody>
+      </table>
+    </div>
   </div>
 </body>
 </html>
