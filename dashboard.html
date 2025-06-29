@@ -2,98 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Youth Empowerment Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://applet.payherokenya.com/cdn/button_sdk.js?v=3.1"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Youth Empowerment Voting</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
   <style>
-    body {
-      font-family: 'Times New Roman', Times, serif;
-      font-size: 13px;
+    .loader {
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
     }
-    .mpesa-color {
-      background-color: #34b236;
-    }
-    /* Progress Dialog Overlay */
-    #loadingOverlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      background: rgba(255, 255, 255, 0.8);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 50;
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
-</head>
-<body class="bg-gray-100 min-h-screen">
-  <!-- Loading Spinner -->
-  <div id="loadingOverlay">
-    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-green-600"></div>
-  </div>
-
-  <!-- Header -->
-  <header class="bg-green-700 text-white p-4 flex justify-between items-center shadow">
-    <h1 class="text-xl font-bold">Welcome to Youth Empowerment Dashboard</h1>
-    <button onclick="logout()" class="bg-red-600 px-4 py-1 rounded hover:bg-red-700 text-sm">Logout</button>
-  </header>
-
-  <!-- Main Container -->
-  <div class="p-4 max-w-6xl mx-auto space-y-6">
-    <div id="welcomeMessage" class="text-lg font-semibold text-gray-800"></div>
-
-    <!-- Profile Section -->
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-green-700 mb-2">Profile</h2>
-      <div id="profileDisplay" class="space-y-1 text-sm text-gray-700"></div>
-      <button onclick="enableEdit()" class="text-blue-600 underline mt-2">Edit Profile</button>
-      <div id="editForm" class="hidden space-y-2 mt-4">
-        <input id="editName" type="text" placeholder="Name" class="w-full border rounded p-2" />
-        <input id="editVillage" type="text" placeholder="Village" class="w-full border rounded p-2" />
-        <button onclick="saveProfile()" class="bg-green-700 text-white px-3 py-1 rounded text-sm">Save</button>
-      </div>
-    </div>
-
-    <!-- Total Paid Section -->
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-green-700 mb-2">Total Contributions</h2>
-      <p class="text-2xl font-bold text-green-600" id="totalPaid">KES 0</p>
-    </div>
-
-    <!-- Payment Input Section -->
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-green-700 mb-2">Make a Contribution</h2>
-      <form id="paymentForm" class="space-y-4">
-        <input id="payerName" type="text" required placeholder="Your Name" class="w-full border p-2 rounded" />
-        <input id="payerPhone" type="tel" required placeholder="Phone Number (e.g. 07xxxxxxxx)" class="w-full border p-2 rounded" />
-        <input id="recipientName" type="text" required placeholder="Recipient's Name" class="w-full border p-2 rounded" />
-        <input id="amount" type="number" required placeholder="Amount (KES)" class="w-full border p-2 rounded" />
-        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Pay Now</button>
-      </form>
-      <div id="payHero" class="mt-4"></div>
-      <p id="statusMsg" class="text-center mt-4 font-semibold text-sm"></p>
-    </div>
-
-    <!-- Payment Records Section -->
-    <div class="bg-white rounded-xl shadow p-4 overflow-auto">
-      <h2 class="text-lg font-bold text-green-700 mb-4">Your Payment History</h2>
-      <table id="paymentTableMain" class="min-w-full text-left text-sm border">
-        <thead class="bg-green-700 text-white">
-          <tr>
-            <th class="p-2">Date</th>
-            <th class="p-2">Recipient</th>
-            <th class="p-2">Amount</th>
-            <th class="p-2">Ref</th>
-            <th class="p-2">Provider</th>
-          </tr>
-        </thead>
-        <tbody id="paymentTable" class="text-gray-700"></tbody>
-      </table>
-    </div>
-  </div>
-
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, set, push, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import {
+      getDatabase,
+      ref,
+      get,
+      set,
+      update
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBtB199eH6fONCftI_B6IDP80_0Tv2dFN8",
@@ -108,163 +43,158 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    function getGreeting() {
-      const hour = new Date().getHours();
-      if (hour < 12) return "Good morning";
-      else if (hour < 18) return "Good afternoon";
-      else return "Good evening";
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+      const voterForm = document.getElementById("voterForm");
+      const votingForm = document.getElementById("votingForm");
+      const seatContainer = document.getElementById("seats");
+      const voterSection = document.getElementById("voterSection");
+      const ballotSection = document.getElementById("ballotSection");
+      const loader = document.getElementById("loader");
+      const verifyMsg = document.getElementById("verifyMsg");
+      let currentPhone = "";
 
-    function showLoading() {
-      document.getElementById("loadingOverlay").style.display = "flex";
-    }
+      voterForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById("voterPhone").value.trim();
+        if (!phone) return alert("Enter your phone number.");
 
-    function hideLoading() {
-      document.getElementById("loadingOverlay").style.display = "none";
-    }
+        verifyMsg.classList.remove("hidden");
 
-    window.logout = function () {
-      localStorage.removeItem("loggedInUser");
-      window.location.href = "login.html";
-    }
+        try {
+          const voterSnap = await get(ref(db, `Youth/Chama/Voting/voters/${phone}`));
+          if (!voterSnap.exists()) {
+            verifyMsg.classList.add("hidden");
+            return alert("You are not registered as a voter.");
+          }
 
-    window.enableEdit = function () {
-      document.getElementById("editForm").classList.remove("hidden");
-    }
+          const voteSnap = await get(ref(db, `Youth/Chama/Voting/votes/${phone}`));
+          if (voteSnap.exists()) {
+            verifyMsg.classList.add("hidden");
+            return alert("You have already voted.");
+          }
 
-    window.saveProfile = function () {
-      const name = document.getElementById("editName").value;
-      const village = document.getElementById("editVillage").value;
-      const user = JSON.parse(localStorage.getItem("loggedInUser"));
-      if (name && village && user) {
-        set(ref(db, `YouthEmp/Members/${user.phone}`), {
-          name,
-          village,
-          phone: user.phone,
-          password: user.password
-        }).then(() => {
-          alert("Profile updated successfully");
-          location.reload();
-        });
-      } else {
-        alert("Please fill all fields");
-      }
-    }
+          currentPhone = phone;
+          voterSection.classList.add("hidden");
+          verifyMsg.classList.add("hidden");
+          loader.classList.remove("hidden");
 
-    showLoading(); // 👈 Show loading at page start
+          const snap = await get(ref(db, "Youth/Chama/Voting/aspirants"));
+          loader.classList.add("hidden");
+          ballotSection.classList.remove("hidden");
 
-    const user = JSON.parse(localStorage.getItem("loggedInUser"));
-    if (user) {
-      const profileRef = ref(db, `YouthEmp/Members/${user.phone}`);
-      get(profileRef).then(snapshot => {
-        const data = snapshot.val();
-        if (data) {
-          document.getElementById("profileDisplay").innerHTML = `
-            <p><strong>Name:</strong> ${data.name}</p>
-            <p><strong>Village:</strong> ${data.village}</p>
-          `;
-          document.getElementById("editName").value = data.name;
-          document.getElementById("editVillage").value = data.village;
-          document.getElementById("welcomeMessage").textContent = `${getGreeting()}, ${data.name}`;
+          if (!snap.exists()) {
+            seatContainer.innerHTML = "<p class='text-red-500'>No aspirants found.</p>";
+            return;
+          }
+
+          const aspirants = Object.values(snap.val());
+          const grouped = {};
+
+          aspirants.forEach((a) => {
+            if (!grouped[a.seat]) grouped[a.seat] = [];
+            grouped[a.seat].push(a);
+          });
+
+          seatContainer.innerHTML = "";
+          for (const seat in grouped) {
+            const section = document.createElement("div");
+            section.className = "mb-6";
+            section.innerHTML = `<h3 class="text-lg font-semibold mb-3">${seat}</h3>`;
+
+            grouped[seat].forEach(a => {
+              section.innerHTML += `
+                <label class="flex items-center space-x-4 mb-3 p-2 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer">
+                  <input type="radio" name="${seat}" value="${a.phone}" required class="form-radio text-blue-600">
+                  <img src="${a.imageUrl}" class="w-20 h-20 object-cover rounded-lg border" />
+                  <span class="text-gray-700 font-medium">${a.name}</span>
+                </label>`;
+            });
+
+            seatContainer.appendChild(section);
+          }
+
+        } catch (error) {
+          console.error(error);
+          alert("Error verifying or loading data.");
+          verifyMsg.classList.add("hidden");
         }
       });
 
-      const contribRef = ref(db, "YouthEmp/contributions");
-      onValue(contribRef, (snapshot) => {
-        let total = 0;
-        let rows = "";
-        snapshot.forEach(childSnapshot => {
-          const data = childSnapshot.val();
-          if (data.phone === user.phone) {
-            total += parseFloat(data.amount);
-            rows += `
-              <tr class="border-t">
-                <td class="p-2">${new Date(data.timestamp).toLocaleDateString()}</td>
-                <td class="p-2">${data.recipient}</td>
-                <td class="p-2 text-green-700 font-semibold">KES ${parseFloat(data.amount).toLocaleString()}</td>
-                <td class="p-2">${data.providerReference}</td>
-                <td class="p-2">${data.provider}</td>
-              </tr>`;
+      votingForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(votingForm);
+        const updates = {};
+        const selections = {};
+
+        try {
+          for (const [seat, phone] of formData.entries()) {
+            const votePath = `Youth/Chama/Voting/results/${seat}/${phone}/count`;
+            const voteRef = ref(db, votePath);
+            const snap = await get(voteRef);
+
+            let newCount = 1;
+            if (snap.exists()) {
+              const current = parseInt(snap.val(), 10);
+              if (!isNaN(current)) {
+                newCount = current + 1;
+              }
+            }
+
+            updates[votePath] = newCount;
+            selections[seat] = phone;
+            console.log(`Vote recorded for seat: ${seat}, phone: ${phone}, new count: ${newCount}`);
           }
-        });
-        document.getElementById("paymentTable").innerHTML = rows;
-        document.getElementById("totalPaid").textContent = `KES ${total.toLocaleString()}`;
-        hideLoading(); // 👈 Hide loading after fetching contributions
+
+          updates[`Youth/Chama/Voting/votes/${currentPhone}`] = {
+            voted: true,
+            selections
+          };
+
+          await update(ref(db), updates);
+          alert("Thank you. Your vote has been recorded.");
+          location.reload();
+        } catch (error) {
+          console.error("Vote submission error:", error);
+          alert("Error submitting your vote.");
+        }
       });
-    }
-
-    const form = document.getElementById("paymentForm");
-    const statusMsg = document.getElementById("statusMsg");
-    let paymentConfirmed = false;
-
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-
-      const name = document.getElementById("payerName").value.trim();
-      const phone = document.getElementById("payerPhone").value.trim();
-      const recipient = document.getElementById("recipientName").value.trim();
-      const amount = parseFloat(document.getElementById("amount").value.trim());
-
-      if (!name || !phone || !recipient || !amount || amount <= 0) {
-        statusMsg.textContent = "❌ Please fill in all fields correctly.";
-        statusMsg.className = "text-red-600 text-sm text-center mt-4";
-        return;
-      }
-
-      const reference = "web_" + Date.now();
-
-      PayHero.init({
-        paymentUrl: "https://app.payhero.co.ke/lipwa/1068",
-        width: "100%",
-        height: "100%",
-        containerId: "payHero",
-        channelID: 1159,
-        amount: amount,
-        phone: phone,
-        name: name,
-        reference: reference,
-        buttonName: `Pay KES ${amount}`,
-        buttonColor: "#00a884"
-      });
-
-      statusMsg.textContent = "⏳ Awaiting payment confirmation...";
-      statusMsg.className = "text-blue-600 text-sm text-center mt-4";
-    });
-
-    window.addEventListener("message", function (event) {
-      if (event.data && event.data.paymentSuccess && !paymentConfirmed) {
-        paymentConfirmed = true;
-
-        const payment = event.data;
-        const name = document.getElementById("payerName").value.trim();
-        const phone = document.getElementById("payerPhone").value.trim();
-        const recipient = document.getElementById("recipientName").value.trim();
-        const amount = parseFloat(document.getElementById("amount").value.trim());
-
-        const paymentRef = ref(db, "YouthEmp/contributions");
-        push(paymentRef, {
-          contributorName: name,
-          phone: phone,
-          recipient: recipient,
-          amount: amount,
-          reference: payment.reference || "N/A",
-          providerReference: payment.providerReference || "N/A",
-          provider: payment.provider || "N/A",
-          timestamp: new Date().toISOString()
-        }).then(() => {
-          statusMsg.textContent = "✅ Payment successful! Ref: " + (payment.providerReference || "Unknown");
-          statusMsg.className = "text-green-600 text-sm text-center mt-4";
-        }).catch((error) => {
-          console.error("❌ Firebase write failed:", error);
-          statusMsg.textContent = "⚠️ Payment received but failed to log to database.";
-          statusMsg.className = "text-yellow-600 text-sm text-center mt-4";
-        });
-      } else if (event.data && event.data.paymentSuccess === false) {
-        statusMsg.textContent = "❌ Payment failed. Please try again.";
-        statusMsg.className = "text-red-600 text-sm text-center mt-4";
-      }
     });
   </script>
+</head>
+<body class="bg-gradient-to-br from-indigo-100 via-purple-100 to-blue-100 min-h-screen p-6">
+  <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-800">Youth Empowerment Voting</h1>
+
+    <!-- Voter Login -->
+    <div id="voterSection">
+      <form id="voterForm" class="space-y-4">
+        <input type="tel" id="voterPhone" placeholder="Enter Your Phone Number"
+               class="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400" required />
+        <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded">
+          Verify & Vote
+        </button>
+      </form>
+      <div id="verifyMsg" class="hidden text-center mt-4">
+        <div class="loader"></div>
+        <p class="text-blue-600 font-medium">Verifying your number...</p>
+      </div>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" class="hidden text-center mt-8">
+      <div class="loader"></div>
+      <p class="text-blue-700 mt-2 font-medium">Loading ballot... please wait</p>
+    </div>
+
+    <!-- Ballot -->
+    <div id="ballotSection" class="hidden">
+      <form id="votingForm" class="space-y-4 mt-6">
+        <div id="seats"></div>
+        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">
+          Submit Vote
+        </button>
+      </form>
+    </div>
+  </div>
 </body>
 </html>
-
