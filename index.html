@@ -2,12 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Youth Empowerment Admin Dashboard</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Youth Empowerment Voting</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+  <style>
+    .loader {
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import {
+      getDatabase,
+      ref,
+      get,
+      set,
+      update
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBtB199eH6fONCftI_B6IDP80_0Tv2dFN8",
@@ -22,113 +43,157 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const maskID = (id) => {
-      if (!id || id.length < 8) return id;
-      return id.slice(0, 4) + "****" + id.slice(-3);
-    };
+    document.addEventListener("DOMContentLoaded", () => {
+      const voterForm = document.getElementById("voterForm");
+      const votingForm = document.getElementById("votingForm");
+      const seatContainer = document.getElementById("seats");
+      const voterSection = document.getElementById("voterSection");
+      const ballotSection = document.getElementById("ballotSection");
+      const loader = document.getElementById("loader");
+      const verifyMsg = document.getElementById("verifyMsg");
+      let currentPhone = "";
 
-    const loadData = async () => {
-      const dbRef = ref(db);
-      const voterTable = document.getElementById("voterBody");
-      const aspirantTable = document.getElementById("aspirantBody");
-      const voterCount = document.getElementById("voterCount");
-      const aspirantCount = document.getElementById("aspirantCount");
+      voterForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById("voterPhone").value.trim();
+        if (!phone) return alert("Enter your phone number.");
 
-      const voterSnap = await get(child(dbRef, "Youth/Chama/Voting/voters"));
-      const aspirantSnap = await get(child(dbRef, "Youth/Chama/Voting/aspirants"));
+        verifyMsg.classList.remove("hidden");
 
-      voterTable.innerHTML = "";
-      aspirantTable.innerHTML = "";
+        try {
+          const voterSnap = await get(ref(db, `Youth/Chama/Voting/voters/${phone}`));
+          if (!voterSnap.exists()) {
+            verifyMsg.classList.add("hidden");
+            return alert("You are not registered as a voter.");
+          }
 
-      let voters = [];
-      let aspirants = [];
+          const voteSnap = await get(ref(db, `Youth/Chama/Voting/votes/${phone}`));
+          if (voteSnap.exists()) {
+            verifyMsg.classList.add("hidden");
+            return alert("You have already voted.");
+          }
 
-      if (voterSnap.exists()) {
-        voters = Object.values(voterSnap.val());
-        voters.forEach((v, i) => {
-          voterTable.innerHTML += `
-            <tr class="border-b">
-              <td class="p-2">${i + 1}</td>
-              <td class="p-2">${v.name}</td>
-              <td class="p-2">${v.phone}</td>
-              <td class="p-2">${maskID(v.id)}</td>
-              <td class="p-2"><img src="${v.imageUrl}" class="w-12 h-12 rounded-full object-cover" /></td>
-            </tr>`;
-        });
-      }
+          currentPhone = phone;
+          voterSection.classList.add("hidden");
+          verifyMsg.classList.add("hidden");
+          loader.classList.remove("hidden");
 
-      if (aspirantSnap.exists()) {
-        aspirants = Object.values(aspirantSnap.val());
-        aspirants.forEach((a, i) => {
-          aspirantTable.innerHTML += `
-            <tr class="border-b">
-              <td class="p-2">${i + 1}</td>
-              <td class="p-2">${a.name}</td>
-              <td class="p-2">${a.phone}</td>
-              <td class="p-2">${maskID(a.id)}</td>
-              <td class="p-2">${a.seat}</td>
-              <td class="p-2"><img src="${a.imageUrl}" class="w-12 h-12 rounded-full object-cover" /></td>
-            </tr>`;
-        });
-      }
+          const snap = await get(ref(db, "Youth/Chama/Voting/aspirants"));
+          loader.classList.add("hidden");
+          ballotSection.classList.remove("hidden");
 
-      // Update counts
-      voterCount.textContent = voters.length;
-      aspirantCount.textContent = aspirants.length;
-    };
+          if (!snap.exists()) {
+            seatContainer.innerHTML = "<p class='text-red-500'>No aspirants found.</p>";
+            return;
+          }
 
-    document.addEventListener("DOMContentLoaded", loadData);
+          const aspirants = Object.values(snap.val());
+          const grouped = {};
+
+          aspirants.forEach((a) => {
+            if (!grouped[a.seat]) grouped[a.seat] = [];
+            grouped[a.seat].push(a);
+          });
+
+          seatContainer.innerHTML = "";
+          for (const seat in grouped) {
+            const section = document.createElement("div");
+            section.className = "mb-6";
+            section.innerHTML = `<h3 class="text-lg font-semibold mb-3">${seat}</h3>`;
+
+            grouped[seat].forEach(a => {
+              section.innerHTML += `
+                <label class="flex items-center space-x-4 mb-3 p-2 bg-gray-50 rounded hover:bg-gray-100 cursor-pointer">
+                  <input type="radio" name="${seat}" value="${a.phone}" required class="form-radio text-blue-600">
+                  <img src="${a.imageUrl}" class="w-20 h-20 object-cover rounded-lg border" />
+                  <span class="text-gray-700 font-medium">${a.name}</span>
+                </label>`;
+            });
+
+            seatContainer.appendChild(section);
+          }
+
+        } catch (error) {
+          console.error(error);
+          alert("Error verifying or loading data.");
+          verifyMsg.classList.add("hidden");
+        }
+      });
+
+      votingForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const formData = new FormData(votingForm);
+        const updates = {};
+        const selections = {};
+
+        try {
+          for (const [seat, phone] of formData.entries()) {
+            const votePath = `Youth/Chama/Voting/results/${seat}/${phone}/count`;
+            const voteRef = ref(db, votePath);
+            const snap = await get(voteRef);
+
+            let newCount = 1;
+            if (snap.exists()) {
+              const current = parseInt(snap.val(), 10);
+              if (!isNaN(current)) {
+                newCount = current + 1;
+              }
+            }
+
+            updates[votePath] = newCount;
+            selections[seat] = phone;
+            console.log(`Vote recorded for seat: ${seat}, phone: ${phone}, new count: ${newCount}`);
+          }
+
+          updates[`Youth/Chama/Voting/votes/${currentPhone}`] = {
+            voted: true,
+            selections
+          };
+
+          await update(ref(db), updates);
+          alert("Thank you. Your vote has been recorded.");
+          location.reload();
+        } catch (error) {
+          console.error("Vote submission error:", error);
+          alert("Error submitting your vote.");
+        }
+      });
+    });
   </script>
 </head>
-<body class="bg-gray-100 p-4 min-h-screen">
-  <div class="max-w-6xl mx-auto">
-    <h1 class="text-3xl font-bold text-center mb-6 text-blue-700">Youth Empowerment Admin Dashboard</h1>
+<body class="bg-gradient-to-br from-indigo-100 via-purple-100 to-blue-100 min-h-screen p-6">
+  <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
+    <h1 class="text-3xl font-bold mb-6 text-center text-blue-800">Youth Empowerment Voting</h1>
 
-    <!-- Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-      <div class="bg-white shadow rounded-lg p-6 text-center">
-        <h2 class="text-lg font-semibold text-gray-700">Total Voters</h2>
-        <p id="voterCount" class="text-3xl font-bold text-green-600 mt-2">0</p>
-      </div>
-      <div class="bg-white shadow rounded-lg p-6 text-center">
-        <h2 class="text-lg font-semibold text-gray-700">Total Aspirants</h2>
-        <p id="aspirantCount" class="text-3xl font-bold text-purple-600 mt-2">0</p>
+    <!-- Voter Login -->
+    <div id="voterSection">
+      <form id="voterForm" class="space-y-4">
+        <input type="tel" id="voterPhone" placeholder="Enter Your Phone Number"
+               class="w-full p-3 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400" required />
+        <button type="submit" class="w-full bg-blue-700 hover:bg-blue-800 text-white py-2 px-4 rounded">
+          Verify & Vote
+        </button>
+      </form>
+      <div id="verifyMsg" class="hidden text-center mt-4">
+        <div class="loader"></div>
+        <p class="text-blue-600 font-medium">Verifying your number...</p>
       </div>
     </div>
 
-    <!-- Voters Table -->
-    <div class="bg-white shadow rounded-lg p-6 mb-10 overflow-x-auto">
-      <h2 class="text-xl font-semibold mb-4 text-green-700">Voter Registrations</h2>
-      <table class="min-w-full text-left text-sm">
-        <thead>
-          <tr class="bg-gray-200">
-            <th class="p-2">#</th>
-            <th class="p-2">Name</th>
-            <th class="p-2">Phone</th>
-            <th class="p-2">National ID</th>
-            <th class="p-2">Photo</th>
-          </tr>
-        </thead>
-        <tbody id="voterBody" class="bg-white"></tbody>
-      </table>
+    <!-- Loader -->
+    <div id="loader" class="hidden text-center mt-8">
+      <div class="loader"></div>
+      <p class="text-blue-700 mt-2 font-medium">Loading ballot... please wait</p>
     </div>
 
-    <!-- Aspirants Table -->
-    <div class="bg-white shadow rounded-lg p-6 overflow-x-auto">
-      <h2 class="text-xl font-semibold mb-4 text-purple-700">Aspirant Registrations</h2>
-      <table class="min-w-full text-left text-sm">
-        <thead>
-          <tr class="bg-gray-200">
-            <th class="p-2">#</th>
-            <th class="p-2">Name</th>
-            <th class="p-2">Phone</th>
-            <th class="p-2">National ID</th>
-            <th class="p-2">Seat</th>
-            <th class="p-2">Photo</th>
-          </tr>
-        </thead>
-        <tbody id="aspirantBody" class="bg-white"></tbody>
-      </table>
+    <!-- Ballot -->
+    <div id="ballotSection" class="hidden">
+      <form id="votingForm" class="space-y-4 mt-6">
+        <div id="seats"></div>
+        <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded">
+          Submit Vote
+        </button>
+      </form>
     </div>
   </div>
 </body>
