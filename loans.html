@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loan Application & PayHero</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://applet.payherokenya.com/cdn/button_sdk.js?v=3.1"></script>
+  <style>
+    body {
+      font-family: 'Times New Roman', serif;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-4">
+  <div class="max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-2xl font-bold text-green-700 mb-4 text-center">Loan Application & Repayment</h2>
+    <p id="eligibleMsg" class="mb-4 text-center text-gray-700 text-sm"></p>
+
+    <!-- Loan Application -->
+    <form id="loanForm" class="space-y-4">
+      <input id="loanAmount" type="number" required placeholder="Enter Loan Amount" class="w-full border border-gray-300 p-3 rounded" />
+      <textarea id="loanReason" required placeholder="Reason for Loan" class="w-full border border-gray-300 p-3 rounded"></textarea>
+      <button type="submit" class="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded">Submit Loan Application</button>
+    </form>
+
+    <!-- Loan Repayment Section -->
+    <div id="paymentSection" class="mt-10">
+      <h3 class="text-lg font-bold mb-2 text-gray-700">Repay Your Loan</h3>
+      <input id="paymentAmount" type="number" required placeholder="Enter Payment Amount" class="w-full border border-gray-300 p-3 rounded" />
+      <button id="initiatePayhero" class="w-full bg-purple-700 hover:bg-purple-800 text-white px-4 py-2 rounded mt-2">
+        Pay with Mpesa (PayHero)
+      </button>
+      <div id="payHero" class="mt-4"></div>
+      <p id="statusMsg" class="text-center mt-4 font-semibold text-sm"></p>
+    </div>
+
+    <!-- Loan History -->
+    <div class="mt-10 overflow-auto rounded-lg border border-gray-200">
+      <h3 class="text-lg font-bold mb-2 text-gray-700 px-4 pt-2">Loan History</h3>
+      <table class="min-w-full text-left border-collapse">
+        <thead class="bg-green-100">
+          <tr>
+            <th class="py-2 px-4 border text-sm">Amount</th>
+            <th class="py-2 px-4 border text-sm">Interest</th>
+            <th class="py-2 px-4 border text-sm">Reason</th>
+            <th class="py-2 px-4 border text-sm">Date</th>
+            <th class="py-2 px-4 border text-sm">Status</th>
+            <th class="py-2 px-4 border text-sm">Balance</th>
+          </tr>
+        </thead>
+        <tbody id="loanHistory" class="bg-white text-gray-700"></tbody>
+      </table>
+    </div>
+
+    <!-- Payment History -->
+    <div class="mt-10 overflow-auto rounded-lg border border-gray-200">
+      <h3 class="text-lg font-bold mb-2 text-gray-700 px-4 pt-2">Payment Records</h3>
+      <table class="min-w-full text-left border-collapse">
+        <thead class="bg-blue-100">
+          <tr>
+            <th class="py-2 px-4 border text-sm">Amount</th>
+            <th class="py-2 px-4 border text-sm">Date</th>
+            <th class="py-2 px-4 border text-sm">Reference</th>
+          </tr>
+        </thead>
+        <tbody id="paymentHistory" class="bg-white text-gray-700"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBtB199eH6fONCftI_B6IDP80_0Tv2dFN8",
+      authDomain: "m-sales-45b35.firebaseapp.com",
+      databaseURL: "https://m-sales-45b35-default-rtdb.firebaseio.com",
+      projectId: "m-sales-45b35",
+      storageBucket: "m-sales-45b35.appspot.com",
+      messagingSenderId: "194892525308",
+      appId: "1:194892525308:web:c01af3028c85abdb97f179"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const user = JSON.parse(localStorage.getItem("loggedInUser"));
+    const savingsRef = ref(db, "YouthEmp/savings");
+    const loansRef = ref(db, `YouthEmp/loans/${user.phone}`);
+    const paymentsRef = ref(db, `YouthEmp/loanPayments/${user.phone}`);
+
+    let totalSaved = 0;
+    let eligibleAmount = 0;
+    let activeLoanKey = null;
+    let activeLoanBalance = 0;
+
+    onValue(savingsRef, snapshot => {
+      totalSaved = 0;
+      snapshot.forEach(child => {
+        const s = child.val();
+        if (s.phone === user.phone) totalSaved += Number(s.amount);
+      });
+      eligibleAmount = totalSaved * 2;
+      document.getElementById("eligibleMsg").innerText = `You are eligible for a loan up to: KES ${eligibleAmount.toLocaleString()}`;
+    });
+
+    document.getElementById("loanForm").addEventListener("submit", e => {
+      e.preventDefault();
+      const amount = Number(document.getElementById("loanAmount").value);
+      const reason = document.getElementById("loanReason").value;
+
+      if (amount > eligibleAmount) {
+        alert("Requested amount exceeds eligibility.");
+        return;
+      }
+
+      if (activeLoanKey) {
+        alert("Clear your current loan before applying again.");
+        return;
+      }
+
+      const interest = Math.ceil(amount * 0.10); // 10% interest
+      const totalBalance = amount + interest;
+
+      push(loansRef, {
+        name: user.name,
+        phone: user.phone,
+        amount,
+        interest,
+        reason,
+        balance: totalBalance,
+        status: "Pending",
+        date: new Date().toISOString()
+      }).then(() => {
+        alert(`Loan submitted. Repay KES ${totalBalance} (includes 10% interest).`);
+        document.getElementById("loanForm").reset();
+      });
+    });
+
+    onValue(loansRef, snapshot => {
+      const list = document.getElementById("loanHistory");
+      list.innerHTML = "";
+      activeLoanKey = null;
+      activeLoanBalance = 0;
+
+      snapshot.forEach(child => {
+        const loan = child.val();
+        const key = child.key;
+
+        list.innerHTML += `
+          <tr class="border-b">
+            <td class="py-2 px-4 border">KES ${loan.amount}</td>
+            <td class="py-2 px-4 border">KES ${loan.interest || 0}</td>
+            <td class="py-2 px-4 border">${loan.reason}</td>
+            <td class="py-2 px-4 border">${new Date(loan.date).toLocaleString()}</td>
+            <td class="py-2 px-4 border">${loan.status}</td>
+            <td class="py-2 px-4 border">KES ${loan.balance || 0}</td>
+          </tr>
+        `;
+
+        if (loan.status === "Approved" && loan.balance > 0) {
+          activeLoanKey = key;
+          activeLoanBalance = loan.balance;
+        }
+      });
+    });
+
+    onValue(paymentsRef, snapshot => {
+      const list = document.getElementById("paymentHistory");
+      list.innerHTML = "";
+      snapshot.forEach(child => {
+        const p = child.val();
+        list.innerHTML += `
+          <tr class="border-b">
+            <td class="py-2 px-4 border">KES ${p.amount}</td>
+            <td class="py-2 px-4 border">${new Date(p.timestamp).toLocaleString()}</td>
+            <td class="py-2 px-4 border">${p.reference || "N/A"}</td>
+          </tr>
+        `;
+      });
+    });
+
+    document.getElementById("initiatePayhero").addEventListener("click", () => {
+      const amount = Number(document.getElementById("paymentAmount").value);
+      const payHeroDiv = document.getElementById("payHero");
+      const statusMsg = document.getElementById("statusMsg");
+      payHeroDiv.innerHTML = "";
+      statusMsg.textContent = "";
+
+      if (!amount || amount <= 0 || amount > activeLoanBalance) {
+        statusMsg.textContent = "Enter valid amount within balance.";
+        statusMsg.className = "text-red-600 text-sm text-center mt-4";
+        return;
+      }
+
+      const reference = `loan_${Date.now()}`;
+
+      PayHero.init({
+        paymentUrl: "https://app.payhero.co.ke/lipwa/1068",
+        containerId: "payHero",
+        channelID: 1159,
+        amount,
+        phone: user.phone,
+        name: user.name,
+        reference,
+        buttonName: `Pay KES ${amount}`,
+        buttonColor: "#00a884"
+      });
+
+      statusMsg.textContent = "Processing payment...";
+      statusMsg.className = "text-blue-600 text-sm text-center mt-4";
+
+      window.addEventListener("message", function handler(event) {
+        if (event.data && event.data.paymentSuccess) {
+          const payment = event.data;
+
+          push(paymentsRef, {
+            phone: payment.phone,
+            amount: payment.amount,
+            customerName: payment.customerName || "N/A",
+            reference: payment.reference,
+            providerReference: payment.providerReference,
+            provider: payment.provider,
+            timestamp: new Date().toISOString()
+          });
+
+          const newBalance = activeLoanBalance - payment.amount;
+          update(ref(db, `YouthEmp/loans/${user.phone}/${activeLoanKey}`), {
+            balance: newBalance
+          });
+
+          statusMsg.textContent = "✅ Payment successful!";
+          statusMsg.className = "text-green-600 text-sm text-center mt-4";
+          window.removeEventListener("message", handler);
+        } else if (event.data && event.data.paymentSuccess === false) {
+          statusMsg.textContent = "❌ Payment failed. Try again.";
+          statusMsg.className = "text-red-600 text-sm text-center mt-4";
+          window.removeEventListener("message", handler);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
