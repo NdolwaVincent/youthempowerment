@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin - Payments Dashboard</title>
+  <title>Admin - Monthly Summary Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -36,26 +36,35 @@
       💼 Payment Records Dashboard
     </h1>
 
-    <!-- Filters -->
+    <!-- Monthly Summary -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-      <input id="searchPhone" type="tel" placeholder="Search by Phone (e.g., 0712345678)"
-        class="w-full p-2 border border-gray-300 rounded"/>
+      <div class="bg-blue-50 p-4 border-l-4 border-blue-600 rounded shadow">
+        <h2 class="font-semibold text-blue-900 mb-1">📅 Current Month Summary</h2>
+        <p id="summaryMonthName" class="text-sm text-gray-800">Month: --</p>
+        <p id="summaryMonthTotal" class="text-sm text-gray-800">Total Transactions: 0</p>
+        <p id="summaryMonthAmount" class="text-sm text-gray-800">Total Amount: KES 0</p>
+      </div>
 
-      <select id="monthFilter" class="w-full p-2 border border-gray-300 rounded">
-        <option value="">Filter by Month</option>
-        <option value="01">January</option>
-        <option value="02">February</option>
-        <option value="03">March</option>
-        <option value="04">April</option>
-        <option value="05">May</option>
-        <option value="06">June</option>
-        <option value="07">July</option>
-        <option value="08">August</option>
-        <option value="09">September</option>
-        <option value="10">October</option>
-        <option value="11">November</option>
-        <option value="12">December</option>
-      </select>
+      <!-- Filters -->
+      <div class="grid grid-cols-1 gap-2">
+        <input id="searchPhone" type="tel" placeholder="Search by Phone (e.g., 0712345678)"
+          class="w-full p-2 border border-gray-300 rounded"/>
+        <select id="monthFilter" class="w-full p-2 border border-gray-300 rounded">
+          <option value="">Filter by Month</option>
+          <option value="01">January</option>
+          <option value="02">February</option>
+          <option value="03">March</option>
+          <option value="04">April</option>
+          <option value="05">May</option>
+          <option value="06">June</option>
+          <option value="07">July</option>
+          <option value="08">August</option>
+          <option value="09">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
     </div>
 
     <!-- Totals & Chart -->
@@ -117,13 +126,20 @@
     const monthFilter = document.getElementById("monthFilter");
     const totalOverall = document.getElementById("totalOverall");
     const totalFiltered = document.getElementById("totalFiltered");
+
+    const summaryMonthName = document.getElementById("summaryMonthName");
+    const summaryMonthTotal = document.getElementById("summaryMonthTotal");
+    const summaryMonthAmount = document.getElementById("summaryMonthAmount");
+
     const barChartCanvas = document.getElementById("barChart");
 
     function renderTable(data) {
-      const selectedMonth = monthFilter.value;
+      const selectedMonth = monthFilter.value || new Date().toISOString().slice(5, 7);
+      const monthName = new Date(`2023-${selectedMonth}-01`).toLocaleString('default', { month: 'long' });
       tbody.innerHTML = "";
       let totalAll = 0;
       let filteredTotal = 0;
+      let monthlyCount = 0;
       const nameTotals = {};
       let counter = 1;
 
@@ -131,11 +147,12 @@
         totalAll += parseFloat(entry.amount);
         const matchesPhone = entry.phone.includes(searchPhone.value);
         const entryMonth = new Date(entry.timestamp).toISOString().slice(5, 7);
-        const matchesMonth = !selectedMonth || entryMonth === selectedMonth;
+        const matchesMonth = selectedMonth === entryMonth;
 
         if (!(matchesPhone && matchesMonth)) return;
 
         filteredTotal += parseFloat(entry.amount);
+        monthlyCount++;
         nameTotals[entry.contributorName] = (nameTotals[entry.contributorName] || 0) + parseFloat(entry.amount);
 
         const row = document.createElement("tr");
@@ -151,6 +168,9 @@
 
       totalOverall.innerText = `Total Paid: KES ${totalAll}`;
       totalFiltered.innerText = `Filtered Total: KES ${filteredTotal}`;
+      summaryMonthName.innerText = `Month: ${monthName}`;
+      summaryMonthTotal.innerText = `Total Transactions: ${monthlyCount}`;
+      summaryMonthAmount.innerText = `Total Amount: KES ${filteredTotal}`;
       drawBarChart(nameTotals);
     }
 
