@@ -9,13 +9,24 @@
   <style>
     body {
       font-family: "Times New Roman", Times, serif;
-      font-size: 11px;
+      font-size: 12px;
     }
-    canvas {
-      max-width: 100% !important;
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
     }
     th {
-      font-size: 11px;
+      background-color: #1e3a8a;
+      color: white;
+      text-align: left;
+      font-weight: bold;
+    }
+    canvas {
+      max-width: 100%;
     }
   </style>
 </head>
@@ -31,7 +42,19 @@
         class="w-full p-2 border border-gray-300 rounded"/>
 
       <select id="monthFilter" class="w-full p-2 border border-gray-300 rounded">
+        <option value="">Filter by Month</option>
+        <option value="01">January</option>
+        <option value="02">February</option>
+        <option value="03">March</option>
+        <option value="04">April</option>
+        <option value="05">May</option>
+        <option value="06">June</option>
         <option value="07">July</option>
+        <option value="08">August</option>
+        <option value="09">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
       </select>
     </div>
 
@@ -52,15 +75,14 @@
 
     <!-- Payments Table -->
     <div class="overflow-x-auto bg-white p-4 rounded shadow">
-      <table class="min-w-full table-auto text-[11px] text-left">
-        <thead class="bg-blue-700 text-white">
+      <table class="text-[11px]">
+        <thead>
           <tr>
-            <th class="p-2">#</th>
-            <th class="p-2">Name</th>
-            <th class="p-2">Phone</th>
-            <th class="p-2">Recipient</th>
-            <th class="p-2">Amount</th>
-            <th class="p-2">Date</th>
+            <th>#</th>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Recipient</th>
+            <th>Amount</th>
           </tr>
         </thead>
         <tbody id="paymentTableBody" class="text-gray-700"></tbody>
@@ -118,12 +140,11 @@
 
         const row = document.createElement("tr");
         row.innerHTML = `
-          <td class="p-2">${counter++}</td>
-          <td class="p-2">${entry.contributorName}</td>
-          <td class="p-2">${entry.phone}</td>
-          <td class="p-2">${entry.recipient}</td>
-          <td class="p-2">KES ${entry.amount}</td>
-          <td class="p-2">${new Date(entry.timestamp).toLocaleString()}</td>
+          <td>${counter++}</td>
+          <td>${entry.contributorName}</td>
+          <td>${entry.phone}</td>
+          <td>${entry.recipient}</td>
+          <td>KES ${entry.amount}</td>
         `;
         tbody.appendChild(row);
       });
