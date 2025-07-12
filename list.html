@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - Payments Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11px;
+    }
+    canvas {
+      max-width: 100% !important;
+    }
+    th {
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-6">
+  <div class="max-w-screen-lg mx-auto">
+    <h1 class="text-2xl md:text-3xl font-bold text-blue-800 mb-4 text-center">
+      💼 Payment Records Dashboard
+    </h1>
+
+    <!-- Filters -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <input id="searchPhone" type="tel" placeholder="Search by Phone (e.g., 0712345678)"
+        class="w-full p-2 border border-gray-300 rounded"/>
+
+      <select id="monthFilter" class="w-full p-2 border border-gray-300 rounded">
+        <option value="07">July</option>
+      </select>
+    </div>
+
+    <!-- Totals & Chart -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-base font-semibold mb-2">📊 Totals</h2>
+        <p id="totalOverall" class="mb-1">Total Paid: KES 0</p>
+        <p id="totalFiltered">Filtered Total: KES 0</p>
+      </div>
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="text-base font-semibold mb-2">📈 Contributions Chart</h2>
+        <div class="relative w-full h-60">
+          <canvas id="barChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Table -->
+    <div class="overflow-x-auto bg-white p-4 rounded shadow">
+      <table class="min-w-full table-auto text-[11px] text-left">
+        <thead class="bg-blue-700 text-white">
+          <tr>
+            <th class="p-2">#</th>
+            <th class="p-2">Name</th>
+            <th class="p-2">Phone</th>
+            <th class="p-2">Recipient</th>
+            <th class="p-2">Amount</th>
+            <th class="p-2">Date</th>
+          </tr>
+        </thead>
+        <tbody id="paymentTableBody" class="text-gray-700"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getDatabase, ref, onValue
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBtB199eH6fONCftI_B6IDP80_0Tv2dFN8",
+      authDomain: "m-sales-45b35.firebaseapp.com",
+      databaseURL: "https://m-sales-45b35-default-rtdb.firebaseio.com",
+      projectId: "m-sales-45b35",
+      storageBucket: "m-sales-45b35.appspot.com",
+      messagingSenderId: "194892525308",
+      appId: "1:194892525308:web:c01af3028c85abdb97f179"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const paymentRef = ref(db, "YouthEmp/contributions");
+
+    let allPayments = {};
+    let chartInstance;
+    const tbody = document.getElementById("paymentTableBody");
+    const searchPhone = document.getElementById("searchPhone");
+    const monthFilter = document.getElementById("monthFilter");
+    const totalOverall = document.getElementById("totalOverall");
+    const totalFiltered = document.getElementById("totalFiltered");
+    const barChartCanvas = document.getElementById("barChart");
+
+    function renderTable(data) {
+      const selectedMonth = monthFilter.value;
+      tbody.innerHTML = "";
+      let totalAll = 0;
+      let filteredTotal = 0;
+      const nameTotals = {};
+      let counter = 1;
+
+      Object.entries(data).forEach(([key, entry]) => {
+        totalAll += parseFloat(entry.amount);
+        const matchesPhone = entry.phone.includes(searchPhone.value);
+        const entryMonth = new Date(entry.timestamp).toISOString().slice(5, 7);
+        const matchesMonth = !selectedMonth || entryMonth === selectedMonth;
+
+        if (!(matchesPhone && matchesMonth)) return;
+
+        filteredTotal += parseFloat(entry.amount);
+        nameTotals[entry.contributorName] = (nameTotals[entry.contributorName] || 0) + parseFloat(entry.amount);
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="p-2">${counter++}</td>
+          <td class="p-2">${entry.contributorName}</td>
+          <td class="p-2">${entry.phone}</td>
+          <td class="p-2">${entry.recipient}</td>
+          <td class="p-2">KES ${entry.amount}</td>
+          <td class="p-2">${new Date(entry.timestamp).toLocaleString()}</td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      totalOverall.innerText = `Total Paid: KES ${totalAll}`;
+      totalFiltered.innerText = `Filtered Total: KES ${filteredTotal}`;
+      drawBarChart(nameTotals);
+    }
+
+    function drawBarChart(dataObj) {
+      const labels = Object.keys(dataObj);
+      const values = Object.values(dataObj);
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(barChartCanvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Total Contributions',
+            data: values,
+            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true },
+            x: {
+              ticks: { autoSkip: false, maxRotation: 60, minRotation: 45 }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    onValue(paymentRef, (snapshot) => {
+      if (snapshot.exists()) {
+        allPayments = snapshot.val();
+        renderTable(allPayments);
+      }
+    });
+
+    searchPhone.addEventListener("input", () => renderTable(allPayments));
+    monthFilter.addEventListener("change", () => renderTable(allPayments));
+  </script>
+</body>
+</html>
